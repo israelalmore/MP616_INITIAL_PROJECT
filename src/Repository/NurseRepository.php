@@ -2,12 +2,18 @@
 
 namespace App\Repository;
 
-use App\Service\NurseJsonDataProvider;
+use App\Entity\Nurse;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
 
-final class NurseRepository
+/**
+ * @extends ServiceEntityRepository<Nurse>
+ */
+class NurseRepository extends ServiceEntityRepository
 {
-    public function __construct(private readonly NurseJsonDataProvider $nurseData)
+    public function __construct(ManagerRegistry $registry)
     {
+        parent::__construct($registry, Nurse::class);
     }
 
     public function findAll(): array
