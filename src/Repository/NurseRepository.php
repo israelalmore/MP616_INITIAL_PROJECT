@@ -28,6 +28,11 @@ class NurseRepository extends ServiceEntityRepository
 
     public function validateCredentials(string $user, string $password): bool
     {
-        return $this->nurseData->authenticate($user, $password) !== null;
+        $nurse = $this->findOneBy(['user' => $user]);
+        $storedPassword = $nurse?->getPassword();
+
+        return $nurse?->getUser() === $user
+            && $storedPassword !== null
+            && $storedPassword === $password;
     }
 }
