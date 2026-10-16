@@ -46,6 +46,14 @@ class NurseRepository extends ServiceEntityRepository
         $nurse = $this->findOneBy(['user' => $user]);
         $storedPassword = $nurse?->getPassword();
 
-        return $storedPassword !== null && hash_equals($storedPassword, $password);
+public function validateCredentials(string $user, string $password): bool
+    {
+        $nurse = $this->findOneBy(['user' => $user]);
+        $storedPassword = $nurse?->getPassword();
+
+        return $nurse?->getUser() === $user
+            && $storedPassword !== null
+            && hash_equals($storedPassword, $password);
+    }
     }
 }
