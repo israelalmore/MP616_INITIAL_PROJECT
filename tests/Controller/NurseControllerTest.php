@@ -2,6 +2,9 @@
 
 namespace App\Tests\Controller;
 
+use App\Entity\Nurse;
+use App\Entity\NurseCredential;
+use App\Repository\NurseRepository;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class NurseControllerTest extends WebTestCase
@@ -17,7 +20,7 @@ final class NurseControllerTest extends WebTestCase
     public function testGetAllReturnsNurseNamesAndCredentialLists(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/index');
+        $client->request('GET', '/nurse/index');
 
         self::assertResponseIsSuccessful();
 
@@ -30,6 +33,45 @@ final class NurseControllerTest extends WebTestCase
             self::assertIsArray($nurse['credentials']);
             self::assertArrayNotHasKey('password', $nurse);
         }
+    }
+
+    public function testGetAllReturnsExpectedNurseDataWithoutPasswords(): void
+    {
+        $client = static::createClient();
+        $nurse = (new Nurse())
+            ->setUser('nurse1')
+            ->setPassword('secret');
+        $nurse->addCredential((new NurseCredential())
+            ->setLicenseNumber('RN-12345')
+            ->setCertification('Basic Life Support')
+            ->setIssuingBody('American Red Cross')
+            ->setIssueDate(new \DateTimeImmutable('2026-01-01'))
+            ->setExpirationDate(new \DateTimeImmutable('2027-01-01')));
+
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findAll')->willReturn([$nurse]);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/index');
+
+        self::assertResponseIsSuccessful();
+        self::assertJsonStringEqualsJsonString(
+            '[{"user":"nurse1","credentials":[{"licenseNumber":"RN-12345","certification":"Basic Life Support","issuingBody":"American Red Cross","expirationDate":"2027-01-01"}]}]',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testGetAllReturnsEmptyJsonListWhenNoNursesAreRegistered(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findAll')->willReturn([]);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/index');
+
+        self::assertResponseIsSuccessful();
+        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
     }
   
     public function testFindByNameReturnsNurseWhenExists(): void

@@ -2,6 +2,8 @@
 
 namespace App\Controller;
 
+use App\Entity\Nurse;
+use App\Entity\NurseCredential;
 use App\Repository\NurseRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -20,10 +22,13 @@ final class NurseController extends AbstractController
         ]);
     }
 
-    #[Route('/index', name: 'app_nurse')]
+    #[Route('/index', name: 'app_nurse', methods: ['GET'])]
     public function getAll(NurseRepository $nurseRepository): JsonResponse
     {
-        return $this->json($nurseRepository->findAll());
+        return $this->json(array_map(
+            fn (Nurse $nurse): array => $this->normalizeNurse($nurse),
+            $nurseRepository->findAll()
+        ));
     }
   
     #[Route('/name/{name}', name: 'app_nurse_show_name', methods: ['GET'])]
@@ -47,7 +52,7 @@ final class NurseController extends AbstractController
             ], JsonResponse::HTTP_NOT_FOUND);
         }
 
-        return $this->json($nurse);
+        return $this->json($this->normalizeNurse($nurse));
     }
 
     #[Route('/login', name: 'app_nurse_login', methods: ['POST'])]
@@ -75,5 +80,29 @@ final class NurseController extends AbstractController
             'success' => true,
             'message' => 'Credenciales correctas',
         ]);
+    }
+
+    /**
+     * @return array{user: ?string, credentials: list<array{
+     *     licenseNumber: ?string,
+     *     certification: ?string,
+     *     issuingBody: ?string,
+     *     expirationDate: ?string
+     * }>}
+     */
+    private function normalizeNurse(Nurse $nurse): array
+    {
+        return [
+            'user' => $nurse->getUser(),
+            'credentials' => array_map(
+                static fn (NurseCredential $credential): array => [
+                    'licenseNumber' => $credential->getLicenseNumber(),
+                    'certification' => $credential->getCertification(),
+                    'issuingBody' => $credential->getIssuingBody(),
+                    'expirationDate' => $credential->getExpirationDate()?->format('Y-m-d'),
+                ],
+                $nurse->getCredentials()->toArray()
+            ),
+        ];
     }
 }
