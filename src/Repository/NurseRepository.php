@@ -16,14 +16,29 @@ class NurseRepository extends ServiceEntityRepository
         parent::__construct($registry, Nurse::class);
     }
 
+    /**
+     * @return list<Nurse>
+     */
     public function findAll(): array
     {
-        return $this->nurseData->findAll();
+        return $this->createQueryBuilder('n')
+            ->leftJoin('n.credentials', 'c')
+            ->addSelect('c')
+            ->orderBy('n.id', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
-    public function findByName(string $name): ?array
+    public function findByName(string $name): ?Nurse
     {
-        return $this->nurseData->findByName($name);
+        return $this->createQueryBuilder('n')
+            ->leftJoin('n.credentials', 'c')
+            ->addSelect('c')
+            ->andWhere('LOWER(n.user) = LOWER(:name)')
+            ->setParameter('name', $name)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function validateCredentials(string $user, string $password): bool
@@ -31,8 +46,14 @@ class NurseRepository extends ServiceEntityRepository
         $nurse = $this->findOneBy(['user' => $user]);
         $storedPassword = $nurse?->getPassword();
 
+public function validateCredentials(string $user, string $password): bool
+    {
+        $nurse = $this->findOneBy(['user' => $user]);
+        $storedPassword = $nurse?->getPassword();
+
         return $nurse?->getUser() === $user
             && $storedPassword !== null
-            && $storedPassword === $password;
+            && hash_equals($storedPassword, $password);
+    }
     }
 }
