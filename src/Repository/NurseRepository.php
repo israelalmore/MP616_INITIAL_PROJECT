@@ -41,6 +41,22 @@ class NurseRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /**
+     * @return list<Nurse>
+     */
+    public function searchByName(string $name): array
+    {
+        return $this->createQueryBuilder('n')
+            ->leftJoin('n.credentials', 'c')
+            ->addSelect('c')
+            ->andWhere('LOWER(n.user) LIKE LOWER(:name)')
+            ->setParameter('name', '%'.$name.'%')
+            ->orderBy('n.id', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function validateCredentials(string $user, string $password): bool
     {
         $nurse = $this->findOneBy(['user' => $user]);

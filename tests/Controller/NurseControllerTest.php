@@ -74,14 +74,36 @@ final class NurseControllerTest extends WebTestCase
         self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
     }
   
-    public function testFindByNameReturnsNurseWhenExists(): void
+    public function testFindByNameReturnsMatchingNursesAsAList(): void
     {
         $client = static::createClient();
+        $nurse = (new Nurse())
+            ->setUser('nurse1')
+            ->setPassword('secret');
+        $nurse->addCredential((new NurseCredential())
+            ->setLicenseNumber('RN-12345')
+            ->setCertification('Basic Life Support')
+            ->setIssuingBody('American Red Cross')
+            ->setIssueDate(new \DateTimeImmutable('2026-01-01'))
+            ->setExpirationDate(new \DateTimeImmutable('2027-01-01')));
+
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('searchByName')->with('nurse1')->willReturn([
+            $nurse,
+            (new Nurse())->setUser('nurse10')->setPassword('secret'),
+            (new Nurse())->setUser('nurse19')->setPassword('secret'),
+        ]);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
         $client->request('GET', '/nurse/name/nurse1');
 
         self::assertResponseIsSuccessful();
-        $nurse = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('nurse1', $nurse['user']);
+        $nurses = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($nurses);
+        self::assertContains('nurse1', array_column($nurses, 'user'));
+        self::assertContains('nurse10', array_column($nurses, 'user'));
+        self::assertContains('nurse19', array_column($nurses, 'user'));
+        $nurse = $nurses[0];
         self::assertSame([
             [
                 'licenseNumber' => 'RN-12345',
@@ -93,27 +115,36 @@ final class NurseControllerTest extends WebTestCase
         self::assertArrayNotHasKey('password', $nurse);
     }
 
-    public function testFindByNameIsCaseInsensitive(): void
+    public function testFindByNameSupportsPartialNamesCaseInsensitively(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurse/name/NURSE2');
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('searchByName')->with('URSE2')->willReturn([
+            (new Nurse())->setUser('nurse2')->setPassword('secret'),
+            (new Nurse())->setUser('nurse20')->setPassword('secret'),
+        ]);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/name/URSE2');
 
         self::assertResponseIsSuccessful();
-        $nurse = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('nurse2', $nurse['user']);
-        self::assertArrayHasKey('credentials', $nurse);
+        $nurses = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertContains('nurse2', array_column($nurses, 'user'));
+        self::assertContains('nurse20', array_column($nurses, 'user'));
+        self::assertArrayHasKey('credentials', $nurses[0]);
     }
 
-    public function testFindByNameReturnsNotFoundWhenNameDoesNotExist(): void
+    public function testFindByNameReturnsEmptyListWhenNameDoesNotExist(): void
     {
         $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('searchByName')->with('noexiste')->willReturn([]);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
         $client->request('GET', '/nurse/name/noexiste');
 
-        self::assertResponseStatusCodeSame(404);
-        self::assertJsonStringEqualsJsonString(
-            '{"success":false,"message":"Enfermera no encontrada"}',
-            $client->getResponse()->getContent()
-        );
+        self::assertResponseIsSuccessful();
+        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
     }
 
     public function testFindByNameWithBlankNameReturnsBadRequest(): void

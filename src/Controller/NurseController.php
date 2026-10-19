@@ -43,16 +43,10 @@ final class NurseController extends AbstractController
             ], JsonResponse::HTTP_BAD_REQUEST);
         }
 
-        $nurse = $nurseRepository->findByName($name);
-
-        if ($nurse === null) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Enfermera no encontrada',
-            ], JsonResponse::HTTP_NOT_FOUND);
-        }
-
-        return $this->json($this->normalizeNurse($nurse));
+        return $this->json(array_map(
+            fn (Nurse $nurse): array => $this->normalizeNurse($nurse),
+            $nurseRepository->searchByName($name)
+        ));
     }
 
     #[Route('/login', name: 'app_nurse_login', methods: ['POST'])]
