@@ -90,8 +90,6 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository = $this->createMock(NurseRepository::class);
         $nurseRepository->method('searchByName')->with('nurse1')->willReturn([
             $nurse,
-            (new Nurse())->setUser('nurse10')->setPassword('secret'),
-            (new Nurse())->setUser('nurse19')->setPassword('secret'),
         ]);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
@@ -100,9 +98,7 @@ final class NurseControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $nurses = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($nurses);
-        self::assertContains('nurse1', array_column($nurses, 'user'));
-        self::assertContains('nurse10', array_column($nurses, 'user'));
-        self::assertContains('nurse19', array_column($nurses, 'user'));
+        self::assertSame(['nurse1'], array_column($nurses, 'user'));
         $nurse = $nurses[0];
         self::assertSame([
             [

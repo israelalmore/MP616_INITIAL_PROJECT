@@ -46,6 +46,20 @@ class NurseRepository extends ServiceEntityRepository
      */
     public function searchByName(string $name): array
     {
+        $exactMatches = $this->createQueryBuilder('n')
+            ->leftJoin('n.credentials', 'c')
+            ->addSelect('c')
+            ->andWhere('LOWER(n.user) = LOWER(:name)')
+            ->setParameter('name', $name)
+            ->orderBy('n.id', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        if ($exactMatches !== []) {
+            return $exactMatches;
+        }
+
         return $this->createQueryBuilder('n')
             ->leftJoin('n.credentials', 'c')
             ->addSelect('c')
