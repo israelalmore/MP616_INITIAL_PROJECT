@@ -22,61 +22,27 @@ class NurseRepository extends ServiceEntityRepository
     public function findAll(): array
     {
         return $this->createQueryBuilder('n')
-            ->leftJoin('n.credentials', 'c')
-            ->addSelect('c')
             ->orderBy('n.id', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
             ->getQuery()
             ->getResult();
     }
 
-    public function findByName(string $name): ?Nurse
+    public function findByUsername(string $username): ?Nurse
     {
         return $this->createQueryBuilder('n')
-            ->leftJoin('n.credentials', 'c')
-            ->addSelect('c')
-            ->andWhere('LOWER(n.user) = LOWER(:name)')
-            ->setParameter('name', $name)
+            ->andWhere('LOWER(n.username) = LOWER(:username)')
+            ->setParameter('username', $username)
             ->getQuery()
             ->getOneOrNullResult();
     }
 
-    /**
-     * @return list<Nurse>
-     */
-    public function searchByName(string $name): array
+    public function validateCredentials(string $username, string $password): bool
     {
-        $exactMatches = $this->createQueryBuilder('n')
-            ->leftJoin('n.credentials', 'c')
-            ->addSelect('c')
-            ->andWhere('LOWER(n.user) = LOWER(:name)')
-            ->setParameter('name', $name)
-            ->orderBy('n.id', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
-            ->getQuery()
-            ->getResult();
-
-        if ($exactMatches !== []) {
-            return $exactMatches;
-        }
-
-        return $this->createQueryBuilder('n')
-            ->leftJoin('n.credentials', 'c')
-            ->addSelect('c')
-            ->andWhere('LOWER(n.user) LIKE LOWER(:name)')
-            ->setParameter('name', '%'.$name.'%')
-            ->orderBy('n.id', 'ASC')
-            ->addOrderBy('c.id', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    public function validateCredentials(string $user, string $password): bool
-    {
-        $nurse = $this->findOneBy(['user' => $user]);
+        $nurse = $this->findByUsername($username);
         $storedPassword = $nurse?->getPassword();
 
-        return $nurse?->getUser() === $user
+        return $nurse !== null
+            && $nurse->getUsername() === $username
             && $storedPassword !== null
             && hash_equals($storedPassword, $password);
     }
