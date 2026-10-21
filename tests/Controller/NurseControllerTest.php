@@ -3,7 +3,6 @@
 namespace App\Tests\Controller;
 
 use App\Entity\Nurse;
-use App\Entity\NurseCredential;
 use App\Repository\NurseRepository;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -17,37 +16,10 @@ final class NurseControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    public function testGetAllReturnsNurseNamesAndCredentialLists(): void
+    public function testGetAllReturnsNurseDetailsWithoutPasswords(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurse/index');
-
-        self::assertResponseIsSuccessful();
-
-        $nurses = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-
-        self::assertCount(20, $nurses);
-        foreach ($nurses as $index => $nurse) {
-            self::assertSame('nurse'.($index + 1), $nurse['user']);
-            self::assertArrayHasKey('credentials', $nurse);
-            self::assertIsArray($nurse['credentials']);
-            self::assertArrayNotHasKey('password', $nurse);
-        }
-    }
-
-    public function testGetAllReturnsExpectedNurseDataWithoutPasswords(): void
-    {
-        $client = static::createClient();
-        $nurse = (new Nurse())
-            ->setUser('nurse1')
-            ->setPassword('secret');
-        $nurse->addCredential((new NurseCredential())
-            ->setLicenseNumber('RN-12345')
-            ->setCertification('Basic Life Support')
-            ->setIssuingBody('American Red Cross')
-            ->setIssueDate(new \DateTimeImmutable('2026-01-01'))
-            ->setExpirationDate(new \DateTimeImmutable('2027-01-01')));
-
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
         $nurseRepository = $this->createMock(NurseRepository::class);
         $nurseRepository->method('findAll')->willReturn([$nurse]);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
@@ -55,59 +27,44 @@ final class NurseControllerTest extends WebTestCase
         $client->request('GET', '/nurse/index');
 
         self::assertResponseIsSuccessful();
+
+        $nurses = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame([[
+            'id' => null,
+            'name' => 'Ana Garcia',
+            'username' => 'nurse1',
+            'createdAt' => '2026-10-20 09:00:00',
+            'updatedAt' => '2026-10-20 09:00:00',
+            'profileImage' => null,
+            'email' => 'ana.garcia@example.com',
+            'status' => 'active',
+        ]], $nurses);
+    }
+
+    public function testFindByUsernameReturnsNurseWhenExists(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findByUsername')->with('ana')->willReturn($nurse);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/username/ana');
+
+        self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
-            '[{"user":"nurse1","credentials":[{"licenseNumber":"RN-12345","certification":"Basic Life Support","issuingBody":"American Red Cross","expirationDate":"2027-01-01"}]}]',
+            '{"id":null,"name":"Ana Garcia","username":"nurse1","createdAt":"2026-10-20 09:00:00","updatedAt":"2026-10-20 09:00:00","profileImage":null,"email":"ana.garcia@example.com","status":"active"}',
             $client->getResponse()->getContent()
         );
     }
 
-    public function testGetAllReturnsEmptyJsonListWhenNoNursesAreRegistered(): void
+    public function testFindByUsernameReturnsNotFoundWhenUsernameDoesNotExist(): void
     {
         $client = static::createClient();
         $nurseRepository = $this->createMock(NurseRepository::class);
-        $nurseRepository->method('findAll')->willReturn([]);
+        $nurseRepository->method('findByUsername')->willReturn(null);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
-
-        $client->request('GET', '/nurse/index');
-
-        self::assertResponseIsSuccessful();
-        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
-    }
-  
-    public function testFindByNameReturnsNurseWhenExists(): void
-    {
-        $client = static::createClient();
-        $client->request('GET', '/nurse/name/nurse1');
-
-        self::assertResponseIsSuccessful();
-        $nurse = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('nurse1', $nurse['user']);
-        self::assertSame([
-            [
-                'licenseNumber' => 'RN-12345',
-                'certification' => 'Basic Life Support',
-                'issuingBody' => 'American Red Cross',
-                'expirationDate' => '2027-01-01',
-            ],
-        ], $nurse['credentials']);
-        self::assertArrayNotHasKey('password', $nurse);
-    }
-
-    public function testFindByNameIsCaseInsensitive(): void
-    {
-        $client = static::createClient();
-        $client->request('GET', '/nurse/name/NURSE2');
-
-        self::assertResponseIsSuccessful();
-        $nurse = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        self::assertSame('nurse2', $nurse['user']);
-        self::assertArrayHasKey('credentials', $nurse);
-    }
-
-    public function testFindByNameReturnsNotFoundWhenNameDoesNotExist(): void
-    {
-        $client = static::createClient();
-        $client->request('GET', '/nurse/name/noexiste');
+        $client->request('GET', '/nurse/username/noexiste');
 
         self::assertResponseStatusCodeSame(404);
         self::assertJsonStringEqualsJsonString(
@@ -116,10 +73,10 @@ final class NurseControllerTest extends WebTestCase
         );
     }
 
-    public function testFindByNameWithBlankNameReturnsBadRequest(): void
+    public function testFindByUsernameWithBlankUsernameReturnsBadRequest(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurse/name/%20');
+        $client->request('GET', '/nurse/username/%20');
 
         self::assertResponseStatusCodeSame(400);
     }
@@ -127,8 +84,11 @@ final class NurseControllerTest extends WebTestCase
     public function testLoginWithValidCredentials(): void
     {
         $client = static::createClient();
-        $client->jsonRequest('POST', '/login', [
-            'user' => 'nurse1',
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('validateCredentials')->with('nurse1', 'n1pass')->willReturn(true);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+        $client->jsonRequest('POST', '/nurse/login', [
+            'username' => 'nurse1',
             'password' => 'n1pass',
         ]);
 
@@ -139,11 +99,14 @@ final class NurseControllerTest extends WebTestCase
         );
     }
 
-    public function testLoginWithNewNurseCredentials(): void
+    public function testLoginWithAnotherNurseAccount(): void
     {
         $client = static::createClient();
-        $client->jsonRequest('POST', '/login', [
-            'user' => 'nurse3',
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('validateCredentials')->with('nurse3', 'n3pass')->willReturn(true);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+        $client->jsonRequest('POST', '/nurse/login', [
+            'username' => 'nurse3',
             'password' => 'n3pass',
         ]);
 
@@ -157,15 +120,30 @@ final class NurseControllerTest extends WebTestCase
     public function testLoginWithInvalidCredentials(): void
     {
         $client = static::createClient();
-        $client->jsonRequest('POST', '/login', [
-            'user' => 'nurse1',
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('validateCredentials')->willReturn(false);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+        $client->jsonRequest('POST', '/nurse/login', [
+            'username' => 'nurse1',
             'password' => 'incorrecta',
         ]);
 
         self::assertResponseStatusCodeSame(401);
         self::assertJsonStringEqualsJsonString(
-            '{"message":"Credenciales incorrectas"}',
+            '{"success":false,"message":"Credenciales incorrectas"}',
             $client->getResponse()->getContent()
         );
+    }
+
+    private function createNurse(string $name, string $username): Nurse
+    {
+        return (new Nurse())
+            ->setName($name)
+            ->setUsername($username)
+            ->setPassword('secret')
+            ->setCreatedAt(new \DateTimeImmutable('2026-10-20 09:00:00'))
+            ->setUpdatedAt(new \DateTimeImmutable('2026-10-20 09:00:00'))
+            ->setEmail('ana.garcia@example.com')
+            ->setStatus('active');
     }
 }
