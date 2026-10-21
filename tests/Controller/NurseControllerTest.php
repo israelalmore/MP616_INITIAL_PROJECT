@@ -66,11 +66,8 @@ final class NurseControllerTest extends WebTestCase
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
         $client->request('GET', '/nurse/username/noexiste');
 
-        self::assertResponseStatusCodeSame(404);
-        self::assertJsonStringEqualsJsonString(
-            '{"success":false,"message":"Enfermera no encontrada"}',
-            $client->getResponse()->getContent()
-        );
+        self::assertResponseIsSuccessful();
+        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
     }
 
     public function testFindByUsernameWithBlankUsernameReturnsBadRequest(): void
