@@ -1,0 +1,60 @@
+name: Backend tests
+
+# 1. When it runs: on every push and on every pull request to main
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    # 2. Temporary PostgreSQL database used only by the CI
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # 3. Environment variables: Symfony gives them priority over .env files
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app?serverVersion=16&charset=utf8
+
+    steps:
+      # 4. Check out the repository code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 5. Install PHP 8.2 with the required extensions
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo_pgsql, intl, mbstring
+          coverage: none
+
+      # 6. Install Composer dependencies
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # 7. Create the test database and its schema
+      - name: Prepare test database
+        run: |
+          php bin/console doctrine:database:create --env=test --if-not-exists
+          php bin/console doctrine:schema:create --env=test
+
+      # 8. Run the test suite (if any test fails, the job turns red)
+      - name: Run tests
+        run: vendor/bin/phpunit --testdox
