@@ -86,7 +86,7 @@ final class NurseControllerTest extends WebTestCase
         $entityManager->expects($this->once())->method('flush');
         static::getContainer()->set(EntityManagerInterface::class, $entityManager);
 
-        $client->request('DELETE', '/nurse/1');
+        $client->request('DELETE', '/nurse/delete/1');
 
         self::assertResponseStatusCodeSame(200);
         self::assertJsonStringEqualsJsonString(
@@ -104,7 +104,7 @@ final class NurseControllerTest extends WebTestCase
         $entityManager->expects($this->never())->method('flush');
         static::getContainer()->set(EntityManagerInterface::class, $entityManager);
 
-        $client->request('DELETE', '/nurse/404');
+        $client->request('DELETE', '/nurse/delete/404');
 
         self::assertResponseStatusCodeSame(404);
         self::assertJsonStringEqualsJsonString(
