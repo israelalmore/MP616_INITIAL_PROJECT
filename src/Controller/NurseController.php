@@ -33,6 +33,12 @@ final class NurseController extends AbstractController
         ));
     }
 
+    #[Route('/name/{id}', name: 'app_nurse_show', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function findById(int $id, NurseRepository $nurseRepository): JsonResponse
+    {
+        $nurse = $nurseRepository->find($id);
+
+        if ($nurse === null) {
     #[Route('/{nurseId<\d+>}', name: 'app_nurse_update', methods: ['PUT'])]
     public function update(
         int $nurseId,
