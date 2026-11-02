@@ -51,7 +51,7 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository->method('find')->with(1)->willReturn($nurse);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
-        $client->request('GET', '/nurse/1');
+        $client->request('GET', '/nurse/id/1');
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
@@ -67,7 +67,44 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository->method('find')->with(123)->willReturn(null);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
-        $client->request('GET', '/nurse/123');
+        $client->request('GET', '/nurse/id/123');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testDeleteRemovesNurseAndReturnsSuccess(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects($this->once())->method('find')->with(Nurse::class, 1)->willReturn($nurse);
+        $entityManager->expects($this->once())->method('remove')->with($nurse);
+        $entityManager->expects($this->once())->method('flush');
+        static::getContainer()->set(EntityManagerInterface::class, $entityManager);
+
+        $client->request('DELETE', '/nurse/1');
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":true,"message":"Enfermera eliminada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testDeleteReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects($this->once())->method('find')->with(Nurse::class, 404)->willReturn(null);
+        $entityManager->expects($this->never())->method('remove');
+        $entityManager->expects($this->never())->method('flush');
+        static::getContainer()->set(EntityManagerInterface::class, $entityManager);
+
+        $client->request('DELETE', '/nurse/404');
 
         self::assertResponseStatusCodeSame(404);
         self::assertJsonStringEqualsJsonString(
@@ -174,7 +211,7 @@ final class NurseControllerTest extends WebTestCase
         self::assertArrayNotHasKey('password', $response);
     }
 
-    public function testFindByIdReturnsNotFoundWhenNurseDoesNotExist(): void
+    public function testFindByIdRouteReturnsNotFoundWhenNurseDoesNotExist(): void
     {
         $client = static::createClient();
         $nurseRepository = $this->createMock(NurseRepository::class);

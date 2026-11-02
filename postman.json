@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "6780e0a6-99fa-43d5-a013-2332588dbd66",
     "name": "Nurse API",
-    "description": "Requests for the Symfony Nurse API. Set base_url to the server root. The search route is /nurse/name/{name}, but the current backend matches that value against an exact username. The update request changes the selected nurse.",
+    "description": "Requests for the Symfony Nurse API. Set base_url to the server root. The search route is /nurse/name/{name}, but the current backend matches that value against an exact username. Update and delete requests change the selected nurse.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -609,6 +609,122 @@
           ],
           "cookie": [],
           "body": "{\n  \"success\": false,\n  \"message\": \"Invalid nurse data\",\n  \"errors\": {\n    \"status\": \"This field is required and must be a string\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Delete nurse - 200 OK",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/nurse/{{nurse_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "nurse",
+            "{{nurse_id}}"
+          ]
+        },
+        "description": "Permanently deletes the nurse identified by nurse_id. This is a destructive request. Expected status: 200 OK; a follow-up lookup confirms the nurse no longer exists."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json()).to.have.property('success', true);",
+              "});",
+              "pm.sendRequest({",
+              "    url: pm.variables.replaceIn('{{base_url}}/nurse/id/{{nurse_id}}'),",
+              "    method: 'GET',",
+              "    header: { Accept: 'application/json' }",
+              "}, function (error, response) {",
+              "    pm.test('deleted nurse is no longer in the database', function () {",
+              "        pm.expect(error).to.equal(null);",
+              "        pm.expect(response.code).to.equal(404);",
+              "    });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "200 OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"success\": true,\n  \"message\": \"Enfermera eliminada\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Delete missing nurse - 404 Not Found",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/nurse/{{missing_nurse_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "nurse",
+            "{{missing_nurse_id}}"
+          ]
+        },
+        "description": "Attempts to delete a nurse ID that should not exist. Expected status: 404 Not Found."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 404 Not Found', function () {",
+              "    pm.response.to.have.status(404);",
+              "    pm.expect(pm.response.json()).to.have.property('success', false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "404 Not Found",
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"success\": false,\n  \"message\": \"Enfermera no encontrada\"\n}"
         }
       ]
     }
