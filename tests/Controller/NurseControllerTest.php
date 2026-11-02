@@ -74,6 +74,8 @@ final class NurseControllerTest extends WebTestCase
             '{"success":false,"message":"Enfermera no encontrada"}',
             $client->getResponse()->getContent()
         );
+    }
+
     public function testUpdateReturnsUpdatedNurseWithoutPassword(): void
     {
         $client = static::createClient();
@@ -164,7 +166,7 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository->method('findByUsername')->with('ana')->willReturn($nurse);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
-        $client->request('GET', '/nurse/username/ana');
+        $client->request('GET', '/nurse/name/ana');
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
@@ -179,16 +181,19 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository = $this->createMock(NurseRepository::class);
         $nurseRepository->method('findByUsername')->willReturn(null);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
-        $client->request('GET', '/nurse/username/noexiste');
+        $client->request('GET', '/nurse/name/noexiste');
 
-        self::assertResponseIsSuccessful();
-        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
     }
 
     public function testFindByUsernameWithBlankUsernameReturnsBadRequest(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurse/username/%20');
+        $client->request('GET', '/nurse/name/%20');
 
         self::assertResponseStatusCodeSame(400);
     }
