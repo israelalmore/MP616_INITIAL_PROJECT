@@ -15,7 +15,6 @@ final class NurseControllerTest extends WebTestCase
         $client->request('GET', '/nurse');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(500, $client->getResponse()->getStatusCode(), 'Intentional test failure for CI verification.');
     }
 
     public function testGetAllReturnsNurseDetailsWithoutPasswords(): void
