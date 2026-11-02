@@ -1,0 +1,154 @@
+{
+  "info": {
+    "_postman_id": "6780e0a6-99fa-43d5-a013-2332588dbd66",
+    "name": "Nurse API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "nurseId",
+      "value": "1"
+    },
+    {
+      "key": "missingNurseId",
+      "value": "999999999"
+    }
+  ],
+  "item": [
+    {
+      "name": "Update nurse - 200 OK",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Nurse\",\n  \"username\": \"{{updateUsername}}\",\n  \"email\": \"{{updateEmail}}\",\n  \"status\": \"active\",\n  \"profileImage\": null\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/nurse/{{nurseId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "nurse",
+            "{{nurseId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const runId = Date.now();",
+              "pm.variables.set('updateUsername', 'postman-' + runId);",
+              "pm.variables.set('updateEmail', 'postman-' + runId + '@example.com');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('does not expose the password', function () {",
+              "    pm.expect(pm.response.json()).not.to.have.property('password');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update missing nurse - 404 Not Found",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ana Garcia\",\n  \"username\": \"nurse1\",\n  \"email\": \"ana.garcia@example.com\",\n  \"status\": \"active\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/nurse/{{missingNurseId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "nurse",
+            "{{missingNurseId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 404 Not Found', function () {",
+              "    pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update nurse with missing field - 400 Bad Request",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Ana Garcia\",\n  \"username\": \"nurse1\",\n  \"email\": \"ana.garcia@example.com\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/nurse/{{nurseId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "nurse",
+            "{{nurseId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 400 Bad Request', function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

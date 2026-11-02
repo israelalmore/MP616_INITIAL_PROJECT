@@ -26,6 +26,7 @@ The main backend functionality is handled by the `NurseController` (`src/Control
 |--------|-------|-------------|
 | `getAll()` | `GET /nurse/index` | Retrieve all nurses. |
 | `findByName(name)` | `GET /nurse/name/{name}` | Find a nurse by name. |
+| `update(id)` | `PUT /nurse/{id}` | Update a nurse's profile. Requires `name`, `username`, `email`, and `status`; accepts optional `profileImage` and `password`. |
 | `login(user, password)` | `POST /nurse/login` | Authenticate a user. |
 
 Other relevant folders:
@@ -206,12 +207,17 @@ You can also check in Supabase → **Table Editor** that the `nurse_credentials`
 
 ## Testing the API
 
-With the server running, import the collection from the `postman/` folder in Postman, or use `curl`:
+With the server running, import `postman/nurse-api.postman_collection.json` in Postman. Set `baseUrl` and `nurseId` in the collection variables to point to a running API and an existing nurse. The collection includes successful, not-found, and invalid-data update requests. The successful request modifies that nurse's data.
+
+You can also use `curl`:
 
 ```bash
 curl http://127.0.0.1:8000/nurse/index
 curl http://127.0.0.1:8000/nurse/name/nurse1
 curl -X POST http://127.0.0.1:8000/nurse/login -H "Content-Type: application/json" -d '{"user":"nurse1","password":"n1pass"}'
+curl -X PUT http://127.0.0.1:8000/nurse/1 -H "Content-Type: application/json" -d '{"name":"Ana Garcia","username":"nurse1","email":"ana.garcia@example.com","status":"active"}'
 ```
+
+The update endpoint returns `200` with the updated nurse, `404` when the ID is unknown, and `400` for malformed or invalid request data. Passwords are never included in the response.
 
 Demo accounts `nurse1` to `nurse2000` use the password pattern `n<number>pass`. They are local development data only, not production credentials.
