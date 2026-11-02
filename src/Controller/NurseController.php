@@ -33,6 +33,26 @@ final class NurseController extends AbstractController
         ));
     }
 
+    #[Route('/delete/{nurseId<\d+>}', name: 'app_nurse_delete', methods: ['DELETE'])]
+    public function delete(int $nurseId, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $nurse = $entityManager->find(Nurse::class, $nurseId);
+        if (!$nurse instanceof Nurse) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Enfermera no encontrada',
+            ], JsonResponse::HTTP_NOT_FOUND);
+        }
+
+        $entityManager->remove($nurse);
+        $entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Enfermera eliminada',
+        ]);
+    }
+
     #[Route('/{nurseId<\d+>}', name: 'app_nurse_update', methods: ['PUT'])]
     public function update(
         int $nurseId,
