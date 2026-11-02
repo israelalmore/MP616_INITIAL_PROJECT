@@ -61,7 +61,7 @@ final class NurseControllerTest extends WebTestCase
             'password' => 'replacement-secret',
         ]);
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseStatusCodeSame(200);
         $response = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('Ana Maria Garcia', $response['name']);
         self::assertSame('ana.garcia', $response['username']);
@@ -124,15 +124,47 @@ final class NurseControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
     }
 
-    public function testFindByUsernameReturnsNurseWhenExists(): void
+    public function testFindByIdReturnsNurseWhenItExists(): void
     {
         $client = static::createClient();
         $nurse = $this->createNurse('Ana Garcia', 'nurse1');
         $nurseRepository = $this->createMock(NurseRepository::class);
-        $nurseRepository->method('findByUsername')->with('ana')->willReturn($nurse);
+        $nurseRepository->method('find')->with(1)->willReturn($nurse);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
-        $client->request('GET', '/nurse/username/ana');
+        $client->request('GET', '/nurse/id/1');
+
+        self::assertResponseStatusCodeSame(200);
+        $response = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Ana Garcia', $response['name']);
+        self::assertArrayNotHasKey('password', $response);
+    }
+
+    public function testFindByIdReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('find')->with(404)->willReturn(null);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/id/404');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testFindByNameRouteLooksUpExactUsername(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findByUsername')->with('nurse1')->willReturn($nurse);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/name/nurse1');
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
@@ -141,22 +173,25 @@ final class NurseControllerTest extends WebTestCase
         );
     }
 
-    public function testFindByUsernameReturnsNotFoundWhenUsernameDoesNotExist(): void
+    public function testFindByNameRouteReturnsNotFoundWhenUsernameDoesNotExist(): void
     {
         $client = static::createClient();
         $nurseRepository = $this->createMock(NurseRepository::class);
         $nurseRepository->method('findByUsername')->willReturn(null);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
-        $client->request('GET', '/nurse/username/noexiste');
+        $client->request('GET', '/nurse/name/noexiste');
 
-        self::assertResponseIsSuccessful();
-        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
     }
 
-    public function testFindByUsernameWithBlankUsernameReturnsBadRequest(): void
+    public function testFindByNameRouteWithBlankUsernameReturnsBadRequest(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurse/username/%20');
+        $client->request('GET', '/nurse/name/%20');
 
         self::assertResponseStatusCodeSame(400);
     }

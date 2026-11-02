@@ -155,6 +155,21 @@ final class NurseController extends AbstractController
         return $this->json($this->normalizeNurse($nurse));
     }
 
+    #[Route('/id/{nurseId<\d+>}', name: 'app_nurse_show_id', methods: ['GET'])]
+    public function findById(int $nurseId, NurseRepository $nurseRepository): JsonResponse
+    {
+        $nurse = $nurseRepository->find($nurseId);
+
+        if (!$nurse instanceof Nurse) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Enfermera no encontrada',
+            ], JsonResponse::HTTP_NOT_FOUND);
+        }
+
+        return $this->json($this->normalizeNurse($nurse));
+    }
+
     #[Route('/name/{name}', name: 'app_nurse_show_username', methods: ['GET'])]
     public function findByName(string $name, NurseRepository $nurseRepository): JsonResponse
     {
