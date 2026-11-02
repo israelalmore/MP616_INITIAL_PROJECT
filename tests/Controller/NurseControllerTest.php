@@ -41,6 +41,40 @@ final class NurseControllerTest extends WebTestCase
         ]], $nurses);
     }
 
+    public function testFindByIdReturnsNurseDetailsWithoutPasswordWhenNurseExists(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        (new \ReflectionProperty(Nurse::class, 'id'))->setValue($nurse, 1);
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('find')->with(1)->willReturn($nurse);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/1');
+
+        self::assertResponseIsSuccessful();
+        self::assertJsonStringEqualsJsonString(
+            '{"id":1,"name":"Ana Garcia","username":"nurse1","createdAt":"2026-10-20 09:00:00","updatedAt":"2026-10-20 09:00:00","profileImage":null,"email":"ana.garcia@example.com","status":"active"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testFindByIdReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('find')->with(123)->willReturn(null);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/123');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
     public function testFindByUsernameReturnsNurseWhenExists(): void
     {
         $client = static::createClient();
