@@ -7,10 +7,9 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: NurseRepository::class)]
-#[ORM\Table(name: 'nurses', uniqueConstraints: [
-    new ORM\UniqueConstraint(name: 'UNIQ_NURSE_USERNAME', columns: ['username']),
-    new ORM\UniqueConstraint(name: 'UNIQ_NURSE_EMAIL', columns: ['email']),
-])]
+#[ORM\Table(name: 'nurses')]
+#[ORM\UniqueConstraint(name: 'UNIQ_NURSE_USERNAME', columns: ['username'])]
+#[ORM\UniqueConstraint(name: 'UNIQ_NURSE_EMAIL', columns: ['email'])]
 #[ORM\HasLifecycleCallbacks]
 class Nurse
 {
