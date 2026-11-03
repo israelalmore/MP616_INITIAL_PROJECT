@@ -2,7 +2,7 @@
 
 REST API developed with **PHP** and **Symfony** for managing and consulting nurse information.
 
-The API provides endpoints for retrieving nurses, searching nurses by name, and authenticating users. Nurse credentials can also be imported into a **centralized database hosted on Supabase**, shared by the whole team.
+The API provides endpoints for retrieving nurses, looking up a nurse by username, and authenticating users. Nurse credentials can also be imported into a **centralized database hosted on Supabase**, shared by the whole team.
 
 ---
 
@@ -25,7 +25,9 @@ The main backend functionality is handled by the `NurseController` (`src/Control
 | Method | Route | Description |
 |--------|-------|-------------|
 | `getAll()` | `GET /nurse/index` | Retrieve all nurses. |
-| `findByName(name)` | `GET /nurse/name/{name}` | Find a nurse by name. |
+| `findById(nurseId)` | `GET /nurse/id/{nurseId}` | Find a nurse by numeric ID. |
+| `findByName(name)` | `GET /nurse/name/{name}` | Find a nurse by exact username supplied in the `name` path segment. |
+| `update(id)` | `PUT /nurse/{id}` | Update a nurse's profile. Requires `name`, `username`, `email`, and `status`; accepts optional `profileImage` and `password`. |
 | `login(user, password)` | `POST /nurse/login` | Authenticate a user. |
 
 Other relevant folders:
@@ -33,7 +35,7 @@ Other relevant folders:
 - `src/Command/` — `app:nurse-credentials:import` console command.
 - `migrations/` — Doctrine migrations that define the database schema.
 - `data/` — Nurse credentials JSON and its schema (see [data/README.md](data/README.md)).
-- `postman/` — Postman collection to test the API.
+- [`postman.json`](postman.json) — importable Postman collection for the API.
 
 > The API endpoints read from `data/nurse_credentials.json` and do **not** require the database. The database is used to store credentials imported with the console command.
 
@@ -206,12 +208,20 @@ You can also check in Supabase → **Table Editor** that the `nurse_credentials`
 
 ## Testing the API
 
-With the server running, import the collection from the `postman/` folder in Postman, or use `curl`:
+Start the Symfony server, then import the root [`postman.json`](postman.json) file into Postman using **Import → File**. The collection's `base_url` variable defaults to `http://127.0.0.1:8000`; change it in the collection's **Variables** tab when using a different server. Set `nurse_id` to an existing nurse ID for the update request.
+
+The collection includes valid and invalid login requests, retrieving all nurses, searching by username and ID, and successful/invalid/not-found update requests. Login defaults to the local demo account `nurse1` / `n1pass`; these sample credentials are for development only. The successful update request modifies the selected nurse. The search route is `GET /nurse/name/{name}`, but the current backend looks up an exact username in that path segment (the default `search_name` is `nurse1`), not the nurse's display name.
+
+You can also use `curl`:
 
 ```bash
 curl http://127.0.0.1:8000/nurse/index
+curl http://127.0.0.1:8000/nurse/id/1
 curl http://127.0.0.1:8000/nurse/name/nurse1
-curl -X POST http://127.0.0.1:8000/nurse/login -H "Content-Type: application/json" -d '{"user":"nurse1","password":"n1pass"}'
+curl -X POST http://127.0.0.1:8000/nurse/login -H "Content-Type: application/json" -d '{"username":"nurse1","password":"n1pass"}'
+curl -X PUT http://127.0.0.1:8000/nurse/1 -H "Content-Type: application/json" -d '{"name":"Ana Garcia","username":"nurse1","email":"ana.garcia@example.com","status":"active"}'
 ```
+
+The update endpoint returns `200` with the updated nurse, `404` when the ID is unknown, and `400` for malformed or invalid request data. Passwords are never included in the response.
 
 Demo accounts `nurse1` to `nurse2000` use the password pattern `n<number>pass`. They are local development data only, not production credentials.

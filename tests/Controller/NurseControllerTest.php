@@ -4,6 +4,7 @@ namespace App\Tests\Controller;
 
 use App\Entity\Nurse;
 use App\Repository\NurseRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class NurseControllerTest extends WebTestCase
@@ -41,15 +42,200 @@ final class NurseControllerTest extends WebTestCase
         ]], $nurses);
     }
 
-    public function testFindByUsernameReturnsNurseWhenExists(): void
+    public function testFindByIdReturnsNurseDetailsWithoutPasswordWhenNurseExists(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        (new \ReflectionProperty(Nurse::class, 'id'))->setValue($nurse, 1);
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('find')->with(1)->willReturn($nurse);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/id/1');
+
+        self::assertResponseIsSuccessful();
+        self::assertJsonStringEqualsJsonString(
+            '{"id":1,"name":"Ana Garcia","username":"nurse1","createdAt":"2026-10-20 09:00:00","updatedAt":"2026-10-20 09:00:00","profileImage":null,"email":"ana.garcia@example.com","status":"active"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testFindByIdReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('find')->with(123)->willReturn(null);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/id/123');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testDeleteRemovesNurseAndReturnsSuccess(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects($this->once())->method('find')->with(Nurse::class, 1)->willReturn($nurse);
+        $entityManager->expects($this->once())->method('remove')->with($nurse);
+        $entityManager->expects($this->once())->method('flush');
+        static::getContainer()->set(EntityManagerInterface::class, $entityManager);
+
+        $client->request('DELETE', '/nurse/delete/1');
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":true,"message":"Enfermera eliminada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testDeleteReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects($this->once())->method('find')->with(Nurse::class, 404)->willReturn(null);
+        $entityManager->expects($this->never())->method('remove');
+        $entityManager->expects($this->never())->method('flush');
+        static::getContainer()->set(EntityManagerInterface::class, $entityManager);
+
+        $client->request('DELETE', '/nurse/delete/404');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testUpdateReturnsUpdatedNurseWithoutPassword(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('find')->with(Nurse::class, 1)->willReturn($nurse);
+        $entityManager->expects($this->once())->method('persist')->with($nurse);
+        $entityManager->expects($this->once())->method('flush');
+        static::getContainer()->set(EntityManagerInterface::class, $entityManager);
+
+        $client->jsonRequest('PUT', '/nurse/1', [
+            'name' => 'Ana Maria Garcia',
+            'username' => 'ana.garcia',
+            'email' => 'ana.maria@example.com',
+            'status' => 'inactive',
+            'profileImage' => 'https://example.com/ana.png',
+            'password' => 'replacement-secret',
+        ]);
+
+        self::assertResponseStatusCodeSame(200);
+        $response = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Ana Maria Garcia', $response['name']);
+        self::assertSame('ana.garcia', $response['username']);
+        self::assertSame('ana.maria@example.com', $response['email']);
+        self::assertSame('inactive', $response['status']);
+        self::assertSame('https://example.com/ana.png', $response['profileImage']);
+        self::assertArrayNotHasKey('password', $response);
+        self::assertStringNotContainsString('replacement-secret', $client->getResponse()->getContent());
+        self::assertSame('replacement-secret', $nurse->getPassword());
+    }
+
+    public function testUpdateReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('find')->with(Nurse::class, 404)->willReturn(null);
+        $entityManager->expects($this->never())->method('flush');
+        static::getContainer()->set(EntityManagerInterface::class, $entityManager);
+
+        $client->jsonRequest('PUT', '/nurse/404', [
+            'name' => 'Ana Garcia',
+            'username' => 'nurse1',
+            'email' => 'ana.garcia@example.com',
+            'status' => 'active',
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testUpdateReturnsBadRequestForInvalidJson(): void
+    {
+        $client = static::createClient();
+        $client->request('PUT', '/nurse/1', server: ['CONTENT_TYPE' => 'application/json'], content: '{');
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testUpdateReturnsBadRequestWhenRequiredDataIsMissing(): void
+    {
+        $client = static::createClient();
+        $client->jsonRequest('PUT', '/nurse/1', [
+            'name' => 'Ana Garcia',
+            'username' => 'nurse1',
+            'email' => 'ana.garcia@example.com',
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testUpdateReturnsBadRequestForInvalidEmail(): void
+    {
+        $client = static::createClient();
+        $client->jsonRequest('PUT', '/nurse/1', [
+            'name' => 'Ana Garcia',
+            'username' => 'nurse1',
+            'email' => 'not-an-email',
+            'status' => 'active',
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testFindByIdReturnsNurseWhenItExists(): void
     {
         $client = static::createClient();
         $nurse = $this->createNurse('Ana Garcia', 'nurse1');
         $nurseRepository = $this->createMock(NurseRepository::class);
-        $nurseRepository->method('findByUsername')->with('ana')->willReturn($nurse);
+        $nurseRepository->method('find')->with(1)->willReturn($nurse);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
-        $client->request('GET', '/nurse/name/ana');
+        $client->request('GET', '/nurse/id/1');
+
+        self::assertResponseStatusCodeSame(200);
+        $response = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('Ana Garcia', $response['name']);
+        self::assertArrayNotHasKey('password', $response);
+    }
+
+    public function testFindByIdRouteReturnsNotFoundWhenNurseDoesNotExist(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('find')->with(404)->willReturn(null);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/id/404');
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testFindByNameRouteLooksUpExactUsername(): void
+    {
+        $client = static::createClient();
+        $nurse = $this->createNurse('Ana Garcia', 'nurse1');
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findByUsername')->with('nurse1')->willReturn($nurse);
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->request('GET', '/nurse/name/nurse1');
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
@@ -58,7 +244,7 @@ final class NurseControllerTest extends WebTestCase
         );
     }
 
-    public function testFindByUsernameReturnsNotFoundWhenUsernameDoesNotExist(): void
+    public function testFindByNameRouteReturnsNotFoundWhenUsernameDoesNotExist(): void
     {
         $client = static::createClient();
         $nurseRepository = $this->createMock(NurseRepository::class);
@@ -73,7 +259,7 @@ final class NurseControllerTest extends WebTestCase
         );
     }
 
-    public function testFindByUsernameWithBlankUsernameReturnsBadRequest(): void
+    public function testFindByNameRouteWithBlankUsernameReturnsBadRequest(): void
     {
         $client = static::createClient();
         $client->request('GET', '/nurse/name/%20');
