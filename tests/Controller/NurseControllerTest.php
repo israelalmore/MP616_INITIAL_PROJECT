@@ -49,7 +49,7 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository->method('findByUsername')->with('ana')->willReturn($nurse);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
 
-        $client->request('GET', '/nurse/username/ana');
+        $client->request('GET', '/nurse/name/ana');
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
@@ -64,16 +64,19 @@ final class NurseControllerTest extends WebTestCase
         $nurseRepository = $this->createMock(NurseRepository::class);
         $nurseRepository->method('findByUsername')->willReturn(null);
         static::getContainer()->set(NurseRepository::class, $nurseRepository);
-        $client->request('GET', '/nurse/username/noexiste');
+        $client->request('GET', '/nurse/name/noexiste');
 
-        self::assertResponseIsSuccessful();
-        self::assertJsonStringEqualsJsonString('[]', $client->getResponse()->getContent());
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"Enfermera no encontrada"}',
+            $client->getResponse()->getContent()
+        );
     }
 
     public function testFindByUsernameWithBlankUsernameReturnsBadRequest(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurse/username/%20');
+        $client->request('GET', '/nurse/name/%20');
 
         self::assertResponseStatusCodeSame(400);
     }
@@ -130,6 +133,83 @@ final class NurseControllerTest extends WebTestCase
             '{"success":false,"message":"Credenciales incorrectas"}',
             $client->getResponse()->getContent()
         );
+    }
+
+    public function testCreateNurseReturnsCreated(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findByUsername')->willReturn(null);
+        $nurseRepository->method('findOneBy')->willReturn(null);
+        $nurseRepository->expects(self::once())
+            ->method('save')
+            ->with(self::callback(fn(Nurse $nurse): bool => $nurse->getUsername() === 'nurse2001'
+                && $nurse->getName() === 'Laura Martinez'
+                && $nurse->getEmail() === 'laura.martinez@example.com'
+                && $nurse->getStatus() === 'active'));
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->jsonRequest('POST', '/nurse', [
+            'name' => 'Laura Martinez',
+            'username' => 'nurse2001',
+            'password' => 'n2001pass',
+            'email' => 'laura.martinez@example.com',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+
+        $nurse = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('nurse2001', $nurse['username']);
+        self::assertSame('active', $nurse['status']);
+        self::assertArrayNotHasKey('password', $nurse);
+    }
+
+    public function testCreateNurseWithMissingFieldsReturnsBadRequest(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->expects(self::never())->method('save');
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->jsonRequest('POST', '/nurse', [
+            'name' => 'Laura Martinez',
+            'email' => 'no-es-un-email',
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+
+        $response = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertFalse($response['success']);
+        self::assertSame(['username', 'password', 'email'], array_keys($response['errors']));
+    }
+
+    public function testCreateNurseWithInvalidJsonReturnsBadRequest(): void
+    {
+        $client = static::createClient();
+        $client->request('POST', '/nurse', [], [], ['CONTENT_TYPE' => 'application/json'], '{"name":');
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testCreateNurseWithExistingUsernameReturnsBadRequest(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findByUsername')->willReturn($this->createNurse('Ana Garcia', 'nurse1'));
+        $nurseRepository->expects(self::never())->method('save');
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->jsonRequest('POST', '/nurse', [
+            'name' => 'Ana Garcia',
+            'username' => 'nurse1',
+            'password' => 'n1pass',
+            'email' => 'otra@example.com',
+        ]);
+
+        self::assertResponseStatusCodeSame(400);
+
+        $response = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey('username', $response['errors']);
     }
 
     private function createNurse(string $name, string $username): Nurse
