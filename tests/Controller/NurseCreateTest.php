@@ -286,7 +286,8 @@ final class NurseCreateTest extends WebTestCase
 
     private function countNurses(): int
     {
-        return static::getContainer()->get(NurseRepository::class)->count([]);
+        // Plain SQL so NurseRepository is not initialized and can still be replaced by a mock
+        return (int) $this->entityManager->getConnection()->fetchOne('SELECT COUNT(*) FROM nurses');
     }
 
     /**
