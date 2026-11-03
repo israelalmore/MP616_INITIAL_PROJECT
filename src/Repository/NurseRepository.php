@@ -36,6 +36,13 @@ class NurseRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    public function save(Nurse $nurse): void
+    {
+        $entityManager = $this->getEntityManager();
+        $entityManager->persist($nurse);
+        $entityManager->flush();
+    }
+
     public function validateCredentials(string $username, string $password): bool
     {
         $nurse = $this->findByUsername($username);
