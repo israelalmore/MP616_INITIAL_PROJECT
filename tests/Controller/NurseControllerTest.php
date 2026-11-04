@@ -12,7 +12,7 @@ final class NurseControllerTest extends WebTestCase
     public function testIndex(): void
     {
         $client = static::createClient();
-        $client->request('GET', '/nurss');
+        $client->request('GET', '/nurse');
 
         self::assertResponseIsSuccessful();
     }
