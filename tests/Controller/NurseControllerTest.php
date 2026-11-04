@@ -4,6 +4,7 @@ namespace App\Tests\Controller;
 
 use App\Entity\Nurse;
 use App\Repository\NurseRepository;
+use Doctrine\DBAL\Exception as DBALException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -317,6 +318,30 @@ final class NurseControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(401);
         self::assertJsonStringEqualsJsonString(
             '{"success":false,"message":"Credenciales incorrectas"}',
+            $client->getResponse()->getContent()
+        );
+    }
+
+    public function testCreateNurseReturnsInternalServerErrorWhenDuplicateCheckFails(): void
+    {
+        $client = static::createClient();
+        $nurseRepository = $this->createMock(NurseRepository::class);
+        $nurseRepository->method('findByUsername')->willThrowException(
+            new class('Database unavailable') extends \RuntimeException implements DBALException {}
+        );
+        $nurseRepository->expects(self::never())->method('save');
+        static::getContainer()->set(NurseRepository::class, $nurseRepository);
+
+        $client->jsonRequest('POST', '/nurse', [
+            'name' => 'Laura Martinez',
+            'username' => 'nurse2001',
+            'password' => 'n2001pass',
+            'email' => 'laura.martinez@example.com',
+        ]);
+
+        self::assertResponseStatusCodeSame(500);
+        self::assertJsonStringEqualsJsonString(
+            '{"success":false,"message":"No se ha podido registrar la enfermera"}',
             $client->getResponse()->getContent()
         );
     }

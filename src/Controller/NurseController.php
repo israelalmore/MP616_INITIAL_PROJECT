@@ -56,14 +56,6 @@ final class NurseController extends AbstractController
         $username = trim($payload['username']);
         $email = trim($payload['email']);
 
-        if ($nurseRepository->findByUsername($username) !== null) {
-            return $this->badRequest('Datos de la enfermera inválidos', ['username' => 'El username ya existe']);
-        }
-
-        if ($nurseRepository->findOneBy(['email' => $email]) !== null) {
-            return $this->badRequest('Datos de la enfermera inválidos', ['email' => 'El email ya existe']);
-        }
-
         $nurse = (new Nurse())
             ->setName(trim($payload['name']))
             ->setUsername($username)
@@ -73,6 +65,14 @@ final class NurseController extends AbstractController
             ->setStatus($payload['status'] ?? self::DEFAULT_STATUS);
 
         try {
+            if ($nurseRepository->findByUsername($username) !== null) {
+                return $this->badRequest('Datos de la enfermera inválidos', ['username' => 'El username ya existe']);
+            }
+
+            if ($nurseRepository->findOneBy(['email' => $email]) !== null) {
+                return $this->badRequest('Datos de la enfermera inválidos', ['email' => 'El email ya existe']);
+            }
+
             $nurseRepository->save($nurse);
         } catch (UniqueConstraintViolationException) {
             return $this->badRequest('Datos de la enfermera inválidos', ['nurse' => 'El username o el email ya existen']);
