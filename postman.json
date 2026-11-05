@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "6780e0a6-99fa-43d5-a013-2332588dbd66",
     "name": "Nurse API",
-    "description": "Requests for the Symfony Nurse API. Set base_url to the server root. The search route is /nurse/name/{name}, but the current backend matches that value against an exact username. Update and delete requests change the selected nurse.",
+    "description": "Requests for the Symfony Nurse API. Set base_url to the server root. The search route is /nurse/name/{name} and matches the username (case-insensitive). nurse_id is only used by read-only requests. 'Create nurse - 201 Created' creates a temporary nurse; the update and delete requests work on that nurse (created_nurse_id) and the delete removes it, so a full run does not modify existing data. Run the collection in order.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -29,6 +29,10 @@
     {
       "key": "login_password",
       "value": "n1pass"
+    },
+    {
+      "key": "created_nurse_id",
+      "value": ""
     }
   ],
   "item": [
@@ -404,6 +408,161 @@
       ]
     },
     {
+      "name": "Create nurse - 201 Created",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Nurse\",\n  \"username\": \"{{createUsername}}\",\n  \"password\": \"postman-pass\",\n  \"email\": \"{{createEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/nurse",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "nurse"
+          ]
+        },
+        "description": "Creates a temporary nurse with a unique username and email and stores its id in the created_nurse_id collection variable. The update and delete requests below work on this nurse, so the collection never modifies existing data. Required JSON fields: name, username, password, email; profileImage and status are optional. Expected statuses: 201 Created, 400 Bad Request for invalid data or duplicate username/email."
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.unset('created_nurse_id');",
+              "const runId = Date.now();",
+              "pm.variables.set('createUsername', 'postman-' + runId);",
+              "pm.variables.set('createEmail', 'postman-' + runId + '@example.com');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 201 Created', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test('returns the new nurse without a password field', function () {",
+              "    const nurse = pm.response.json();",
+              "    pm.expect(nurse.id).to.be.a('number');",
+              "    pm.expect(nurse.username).to.equal(pm.variables.get('createUsername'));",
+              "    pm.expect(nurse.status).to.equal('active');",
+              "    pm.expect(nurse).not.to.have.property('password');",
+              "});",
+              "if (pm.response.code === 201) {",
+              "    pm.collectionVariables.set('created_nurse_id', pm.response.json().id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "201 Created",
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": 1001,\n  \"name\": \"Postman Nurse\",\n  \"username\": \"postman-1730000000000\",\n  \"createdAt\": \"2026-11-05 10:00:00\",\n  \"updatedAt\": \"2026-11-05 10:00:00\",\n  \"profileImage\": null,\n  \"email\": \"postman-1730000000000@example.com\",\n  \"status\": \"active\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Create nurse with missing fields - 400 Bad Request",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman Nurse\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/nurse",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "nurse"
+          ]
+        },
+        "description": "Omits username, password and email. Expected status: 400 Bad Request with one entry per missing field in errors. Nothing is written to the database."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('returns 400 Bad Request', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "pm.test('reports the missing fields', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.success).to.equal(false);",
+              "    pm.expect(body.errors).to.have.all.keys('username', 'password', 'email');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": [
+        {
+          "name": "400 Bad Request",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"success\": false,\n  \"message\": \"Datos de la enfermera inválidos\",\n  \"errors\": {\n    \"username\": \"This field is missing.\",\n    \"password\": \"This field is missing.\",\n    \"email\": \"This field is missing.\"\n  }\n}"
+        }
+      ]
+    },
+    {
       "name": "Update nurse - 200 OK",
       "request": {
         "method": "PUT",
@@ -427,16 +586,16 @@
           }
         },
         "url": {
-          "raw": "{{base_url}}/nurse/{{nurse_id}}",
+          "raw": "{{base_url}}/nurse/{{created_nurse_id}}",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "nurse",
-            "{{nurse_id}}"
+            "{{created_nurse_id}}"
           ]
         },
-        "description": "Updates the nurse identified by nurse_id. Required JSON fields: name, username, email, and status; profileImage and password are optional. Expected statuses: 200 OK, 400 Bad Request for invalid data or duplicate username/email, and 404 Not Found for an unknown ID. This request changes data in the selected environment."
+        "description": "Updates the nurse created by 'Create nurse - 201 Created' (created_nurse_id). Required JSON fields: name, username, email, and status; profileImage and password are optional. Expected statuses: 200 OK, 400 Bad Request for invalid data or duplicate username/email, and 404 Not Found for an unknown ID."
       },
       "event": [
         {
@@ -458,8 +617,11 @@
               "pm.test('returns 200 OK', function () {",
               "    pm.response.to.have.status(200);",
               "});",
-              "pm.test('does not expose the password', function () {",
-              "    pm.expect(pm.response.json()).not.to.have.property('password');",
+              "pm.test('returns the updated nurse without a password field', function () {",
+              "    const nurse = pm.response.json();",
+              "    pm.expect(String(nurse.id)).to.equal(String(pm.collectionVariables.get('created_nurse_id')));",
+              "    pm.expect(nurse.username).to.equal(pm.variables.get('updateUsername'));",
+              "    pm.expect(nurse).not.to.have.property('password');",
               "});"
             ]
           }
@@ -478,7 +640,7 @@
             }
           ],
           "cookie": [],
-          "body": "{\n  \"id\": 1,\n  \"name\": \"Postman Nurse\",\n  \"username\": \"postman-1730000000000\",\n  \"createdAt\": \"2026-10-20 09:00:00\",\n  \"updatedAt\": \"2026-10-20 09:00:00\",\n  \"profileImage\": null,\n  \"email\": \"postman-1730000000000@example.com\",\n  \"status\": \"active\"\n}"
+          "body": "{\n  \"id\": 1001,\n  \"name\": \"Postman Nurse\",\n  \"username\": \"postman-1730000000000\",\n  \"createdAt\": \"2026-10-20 09:00:00\",\n  \"updatedAt\": \"2026-10-20 09:00:00\",\n  \"profileImage\": null,\n  \"email\": \"postman-1730000000000@example.com\",\n  \"status\": \"active\"\n}"
         }
       ]
     },
@@ -571,13 +733,13 @@
           }
         },
         "url": {
-          "raw": "{{base_url}}/nurse/{{nurse_id}}",
+          "raw": "{{base_url}}/nurse/{{created_nurse_id}}",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "nurse",
-            "{{nurse_id}}"
+            "{{created_nurse_id}}"
           ]
         },
         "description": "Omits the required status field. Expected status: 400 Bad Request; the controller validates the body before attempting the database lookup."
@@ -623,16 +785,17 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/nurse/{{nurse_id}}",
+          "raw": "{{base_url}}/nurse/delete/{{created_nurse_id}}",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "nurse",
-            "{{nurse_id}}"
+            "delete",
+            "{{created_nurse_id}}"
           ]
         },
-        "description": "Permanently deletes the nurse identified by nurse_id. This is a destructive request. Expected status: 200 OK; a follow-up lookup confirms the nurse no longer exists."
+        "description": "Permanently deletes the nurse created by 'Create nurse - 201 Created' (created_nurse_id), so the run leaves no data behind. Expected status: 200 OK; a follow-up lookup confirms the nurse no longer exists."
       },
       "event": [
         {
@@ -645,7 +808,7 @@
               "    pm.expect(pm.response.json()).to.have.property('success', true);",
               "});",
               "pm.sendRequest({",
-              "    url: pm.variables.replaceIn('{{base_url}}/nurse/id/{{nurse_id}}'),",
+              "    url: pm.variables.replaceIn('{{base_url}}/nurse/id/{{created_nurse_id}}'),",
               "    method: 'GET',",
               "    header: { Accept: 'application/json' }",
               "}, function (error, response) {",
@@ -653,7 +816,8 @@
               "        pm.expect(error).to.equal(null);",
               "        pm.expect(response.code).to.equal(404);",
               "    });",
-              "});"
+              "});",
+              "pm.collectionVariables.unset('created_nurse_id');"
             ]
           }
         }
@@ -686,12 +850,13 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/nurse/{{missing_nurse_id}}",
+          "raw": "{{base_url}}/nurse/delete/{{missing_nurse_id}}",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "nurse",
+            "delete",
             "{{missing_nurse_id}}"
           ]
         },
