@@ -1,13 +1,17 @@
 # Nurse sample data
 
-`nurse.sql` contains 1,000 sample rows for the single `nurses` table. For local login testing, accounts `nurse1` through `nurse1000` use plain-text demo passwords `n1pass` through `n1000pass`. Apply the database migrations before importing the rows:
+`nurse.sql` contains 1,000 sample rows for the single `nurses` table. Accounts `nurse1` through `nurse1000` use plain-text demo passwords following the pattern `n<number>pass` (for example, `n8pass`). These are development-only credentials and must not be reused elsewhere.
+
+Apply the database migrations before importing the rows:
 
 ```sh
 php bin/console doctrine:migrations:migrate
 ```
 
-For local API login testing, accounts `nurse1` through `nurse2000` use short demo passwords following the pattern `n<number>pass` (for example, `n8pass`). The current demo login repository is configured with these same accounts. These sample passwords are not production credentials and should not be reused outside local development.
+The rows are inserted with **explicit `id` values**, so the `nurses_id_seq` sequence is not advanced. After importing, align it; otherwise `POST /nurse` may fail with a duplicate-key error reported as `400` ("El username o el email ya existen"):
 
-The importer accepts files up to 5 MiB and imports at most 10,000 credentials per file. An import is transactional: if any record is invalid or already exists, no records from that file are inserted. Passwords in the JSON are demo login data; credential imports do not create or update login accounts.
+```sql
+SELECT setval(pg_get_serial_sequence('nurses','id'), (SELECT MAX(id) FROM nurses));
+```
 
-The nurse API reads records through the Doctrine-managed nurse repository. `GET /index`, `GET /nurse/name/{name}`, and a successful `POST /login` response include a `credentials` array with each nurse's license number, certification, issuing body, and expiration date. The `/nurse/name/{name}` route currently matches an exact username (case-insensitive in the repository query) and returns `404` when no nurse matches.
+The nurse API reads and writes records through the Doctrine-managed `NurseRepository` / `Nurse` entity (see the main [README](../README.md)).
