@@ -399,12 +399,11 @@ To verify it ran: open the **Actions** tab of the GitHub repository and select t
 
 Start the Symfony server, then import the root [`postman.json`](postman.json) file into Postman using **Import → File**. The collection's `base_url` variable defaults to `http://127.0.0.1:8000`; change it in the collection's **Variables** tab when using a different server.
 
-The collection includes valid and invalid login requests, retrieving all nurses, searching by username and ID, update requests (success, not found, missing field) and delete requests. Login defaults to the demo account `nurse1` / `n1pass` (development only). The search route is `GET /nurse/name/{name}`, which looks up a username (the default `search_name` is `nurse1`), not the nurse's display name.
+The collection includes valid and invalid login requests, retrieving all nurses, searching by username and ID, create requests (success, missing fields), update requests (success, not found, missing field) and delete requests. Login defaults to the demo account `nurse1` / `n1pass` (development only). The search route is `GET /nurse/name/{name}`, which looks up a username (the default `search_name` is `nurse1`), not the nurse's display name.
 
-**Warnings (shared database):**
+**Run the collection in order.** "Create nurse - 201 Created" creates a temporary nurse with a unique username and email and stores its id in the `created_nurse_id` collection variable. The update and delete requests work on that nurse, and "Delete nurse - 200 OK" (`DELETE /nurse/delete/{nurseId}`) removes it, so a full run leaves no data behind. `nurse_id` (default `1`) is only used by read-only requests.
 
-- The request "Update nurse - 200 OK" uses `nurse_id` = 1 by default and **modifies a real nurse** in the shared Supabase database. Change `nurse_id` to a test nurse (for example one created with `POST /nurse`) before sending it.
-- The "Delete nurse" requests in the collection call `{{base_url}}/nurse/{{nurse_id}}`, but the real route is **`DELETE /nurse/delete/{nurseId}`**. The collection has not been corrected yet; use the right path.
+If "Create nurse - 201 Created" fails, the update and delete requests that depend on it fail too (they never fall back to an existing nurse). On Supabase this happens while the `nurses_id_seq` sequence is behind `MAX(id)` (see [Troubleshooting](#troubleshooting)).
 
 You can also use `curl`:
 
