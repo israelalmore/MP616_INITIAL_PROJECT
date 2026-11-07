@@ -1009,3 +1009,6 @@ INSERT INTO nurses (
 (998, 'Nurse 998', 'nurse998', 'n998pass', '2026-10-20 09:00:00', '2026-10-20 09:00:00', NULL, 'nurse998@example.com', 'active'),
 (999, 'Nurse 999', 'nurse999', 'n999pass', '2026-10-20 09:00:00', '2026-10-20 09:00:00', NULL, 'nurse999@example.com', 'active'),
 (1000, 'Nurse 1000', 'nurse1000', 'n1000pass', '2026-10-20 09:00:00', '2026-10-20 09:00:00', NULL, 'nurse1000@example.com', 'active');
+
+-- Sync nurses_id_seq with MAX(id) after inserting explicit IDs
+SELECT setval(pg_get_serial_sequence('nurses','id'), (SELECT MAX(id) FROM nurses));
